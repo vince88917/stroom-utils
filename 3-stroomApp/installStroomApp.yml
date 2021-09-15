@@ -1,0 +1,138 @@
+---
+#
+# Install Stroom Web UI nodes
+#
+- hosts: webnodes
+  become: yes
+  tasks:
+
+  - name: Create STROOM user '{{ stroomUserName }}'
+    user:
+      name: "{{ stroomUserName }}"
+      state: present
+  
+  - name: Install Unzip
+    package:
+      name: unzip
+      state: present
+
+  - name: Python 3 needed for Ansible playbooks
+    package:
+      name: python3
+      state: present
+  
+  - name: Python Expect needed for Ansible playbooks
+    vars:
+      ansible_python_interpreter: /usr/bin/python3
+    pip:
+      name: pexpect
+      state: present
+  
+  # Compatibility issues were found with MySQL if postfix is present
+  - name: Uninstall postfix
+    package:
+      name: postfix
+      state: absent
+
+  - name: Create temp directory for MySQL RPMs
+    file:
+      path: "{{ mediaDir }}"
+      state: directory
+
+  - name: Unzip MySQL bundle
+    unarchive:
+      src: "{{ mediaDir }}/mysql-8.0.26-1.el7.x86_64.rpm-bundle.tar"
+      dest: "{{ mediaDir }}"
+
+  - name: Copy MySQL Router RPM
+    copy:
+      src: "{{ mediaDir }}/mysql-router-community-8.0.26-1.el7.x86_64.rpm"
+      dest: "{{ mediaDir }}"
+
+  - name: Copy nginx RPM
+    copy:
+      src: "{{ mediaDir }}/nginx-1.20.1-1.el7.ngx.x86_64.rpm"
+      dest: "{{ mediaDir }}"
+
+  - name: Install required rpms
+    yum:
+      name: 
+        - "{{ mediaDir }}/mysql-community-common-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-client-plugins-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-libs-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-client-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-client-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-router-community-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/nginx-1.20.1-1.el7.ngx.x86_64.rpm"
+
+  - name: Remove temp directory for MySQL downloads
+    file:
+      path: "{{ mediaDir }}"
+      state: absent
+
+  - name: Bootstrap the MySQL 8 Router
+    vars:
+      ansible_python_interpreter: /usr/bin/python3
+    expect: 
+      command: /usr/bin/mysqlrouter --force --user=mysqlrouter --bootstrap={{ clusterAdminUsername }}@{{ groups['dbmaster'][0] }}:{{ mysqlPort }}
+      echo: yes
+      responses:
+        "Please enter MySQL password for": "{{ clusterAdminPassword }}"
+
+  - name: MySQL 8 Router service
+    service:
+      name: mysqlrouter
+      enabled: yes
+      state: started
+  
+  - name: Unpack Java
+    unarchive:
+      src: "{{ mediaDir }}/openjdk-15.0.2_linux-x64_bin.tar.gz"
+      dest: /opt/
+      owner: root
+      group: root
+      mode: a=rx
+  
+  - name: Add JAVA_HOME
+    lineinfile:
+      path: /etc/bashrc
+      regexp: '^export JAVAHOME='
+      line: export JAVAHOME=/opt/jdk-15.0.2
+  
+  - name: Modify PATH
+    lineinfile:
+      path: /etc/bashrc
+      regexp: '^export PATH=${PATH}:/opt/jdk-15.0.2/bin$'
+      line: export PATH=${PATH}:/opt/jdk-15.0.2/bin
+      state: present
+
+  # Soft dependency - may be needed by supporting scripts etc?
+  #- name: Install JQ
+    #package: 
+      #name: jq
+      #state: present
+
+  - name: SELinux management tools required for Playbooks
+    package:
+      name: policycoreutils-python
+      state: present
+
+  - name: SELinux in Enforcing mode
+    selinux:
+      policy: targeted
+      state: enforcing
+
+  - name: "Ensure Stroom directory exists"
+    file:
+      path: "/opt/stroom-app-{{ stroomVersion }}"
+      state: directory
+      owner: "{{ stroomUserName }}"
+      group: "{{ stroomUserName }}"
+
+  - name: "Unpack the STROOM release archive"
+    unarchive:
+      src: "{{ mediaDir }}/stroom-app-{{ stroomVersion }}.zip"
+      dest: "/opt/stroom-app-{{ stroomVersion }}"
+      owner: "{{ stroomUserName }}"
+      group: "{{ stroomUserName }}"
+...

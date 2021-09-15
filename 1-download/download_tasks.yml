@@ -1,0 +1,60 @@
+---
+
+- hosts: 127.0.0.1
+  vars:
+    mysqlBundleUrl: https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.26-1.el7.x86_64.rpm-bundle.tar 
+    mysqlRouterUrl: https://dev.mysql.com/get/Downloads/MySQL-Router/mysql-router-community-8.0.26-1.el7.x86_64.rpm
+    mysqlShellUrl: https://dev.mysql.com/get/Downloads/MySQL-Shell/mysql-shell-8.0.26-1.el7.x86_64.rpm
+    stroomAppUrl: https://github.com/gchq/stroom/releases/download/v7.0-beta.144/stroom-app-v7.0-beta.144.zip
+    stroomProxyUrl: https://github.com/gchq/stroom/releases/download/v7.0-beta.144/stroom-proxy-app-v7.0-beta.144.zip
+    jdkUrl: https://download.java.net/java/GA/jdk15.0.2/0d1cfde4252546c6931946de8db48ee2/7/GPL/openjdk-15.0.2_linux-x64_bin.tar.gz
+    nginxUrl: https://nginx.org/packages/rhel/7/x86_64/RPMS/nginx-1.20.1-1.el7.ngx.x86_64.rpm
+    jqUrl: https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
+  connection: local
+  tasks:
+  
+  - name: Create directory for downloaded media
+    file:
+      path: "{{ mediaDir }}"
+      state: directory
+
+  - name: Download MySQL bundle
+    get_url:
+      dest: "{{ mediaDir }}"
+      url: "{{ mysqlBundleUrl }}"
+  
+  - name: Download MySQL Router RPM
+    get_url:
+      dest: "{{ mediaDir }}"
+      url: "{{ mysqlRouterUrl }}"
+  
+  - name: Download MySQL Shell RPM
+    get_url:
+      dest: "{{ mediaDir }}"
+      url: "{{ mysqlShellUrl }}"
+  
+  - name: Download Stroom app
+    get_url:
+      dest: "{{ mediaDir }}"
+      url: "{{ stroomAppUrl }}"
+  
+  - name: Download Stroom proxy
+    get_url:
+      dest: "{{ mediaDir }}"
+      url: "{{ stroomProxyUrl }}"
+  
+  - name: Download JDK
+    get_url:
+      dest: "{{ mediaDir }}"
+      url: "{{ jdkUrl }}"
+  
+  - name: Download nginx
+    get_url:
+      dest: "{{ mediaDir }}"
+      url: "{{ nginxUrl }}"
+  
+  - name: Download jq
+    get_url:
+      dest: "{{ mediaDir }}"
+      url: "{{ jqUrl }}"
+  

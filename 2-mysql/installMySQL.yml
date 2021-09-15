@@ -1,0 +1,149 @@
+---
+#
+# Install MySQLv8 cluster
+#
+- hosts: dbhosts
+  become: yes
+  tasks:
+
+  # Pre-requisite for mysql
+  - name: Install pre-reqs
+    package:
+      state: present
+      name:
+        - libaio
+        - python3
+
+  - name: Python Expect needed for Ansible playbooks
+    vars:
+      ansible_python_interpreter: /usr/bin/python3
+    pip:
+      name: pexpect
+      state: present
+
+  # Compatibility issues were found with MySQL if postfix is present
+  - name: Uninstall postfix
+    package:
+      name: postfix
+      state: absent
+
+  - name: Create temp directory for MySQL RPMs
+    file:
+      path: "{{ mediaDir }}"
+      state: directory
+
+  - name: Unzip MySQL bundle
+    unarchive:
+      src: "{{ mediaDir }}/mysql-8.0.26-1.el7.x86_64.rpm-bundle.tar"
+      dest: "{{ mediaDir }}"
+
+  - name: Copy MySQL Shell RPM
+    copy:
+      src: "{{ mediaDir }}/mysql-shell-8.0.26-1.el7.x86_64.rpm"
+      dest: "{{ mediaDir }}"
+
+  - name: Install mysql rpms
+    yum:
+      name: 
+        - "{{ mediaDir }}/mysql-community-common-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-client-plugins-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-libs-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-client-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-server-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-shell-8.0.26-1.el7.x86_64.rpm"
+
+  - name: Remove temp directory for MySQL downloads
+    file:
+      path: "{{ mediaDir }}"
+      state: absent
+
+  - name: "Disable SELinux (TODO: something better than this!)"
+    selinux:
+      policy: targeted
+      state: permissive
+
+  - name: Start MySQL 8 server
+    service:
+      name: mysqld
+      enabled: yes
+      state: started
+
+  #- name: Start MySQL 8 router
+    #service:
+      #name: mysqlrouter
+      #enabled: yes
+      #state: started
+
+  - name: Discover MySQL8 default password
+    command: grep -o -P "(?<=password is generated for root@localhost{{':'}} ).*" /var/log/mysqld.log
+    register:  mysql_temp_root_pw
+
+  - name: see if our /var/lib/mysql/mysql-mysql_secure_installation-ran.txt exists
+    stat:
+      path: /var/lib/mysql/mysql-mysql_secure_installation-ran.txt
+    register: mysql_secure_installation_ran_stat
+  
+  - name: MySQL 8 secure setup if its not been run already
+    when: mysql_secure_installation_ran_stat.stat.exists == false
+    vars:
+      ansible_python_interpreter: /usr/bin/python3
+      mysql_root_pw: "{{ mysql_temp_root_pw.stdout_lines[-1] }}"
+    expect: 
+      command: /usr/bin/mysql_secure_installation
+      responses:
+        "Enter password for user root:": "{{ mysql_root_pw }}"
+        "New password:": "{{ mysqlRootPassword }}"
+        "Re-enter new password:": "{{ mysqlRootPassword }}"
+        "Change the password for root . ..Press y.Y for Yes, any other key for No. :": "y"
+        "Remove anonymous users. .Press y.Y for Yes, any other key for No. :": "y"
+        "Disallow root login remotely. .Press y.Y for Yes, any other key for No. :": "y"
+        "Remove test database and access to it. .Press y.Y for Yes, any other key for No. :": "y"
+        "Reload privilege tables now. .Press y.Y for Yes, any other key for No. :": "y"
+        "Do you wish to continue with the password provided..Press y.Y for Yes, any other key for No. :": "y"
+    register: mysql_secure_installation_ran
+       
+  - name: record that mysql_secure_installation was run
+    when:
+    - mysql_secure_installation_ran_stat.stat.exists == false
+    - mysql_secure_installation_ran.changed
+    file:
+      path: /var/lib/mysql/mysql-mysql_secure_installation-ran.txt
+      state: touch
+
+  - name: Update my.cnf for replication setting
+    copy:
+      src: my.cnf
+      dest: /etc/my.cnf
+
+  - name: Group Replication pre-requisite settings
+    command: mysqlsh --user=root --password={{ mysqlRootPassword }} -e "set persist binlog_checksum=None" --sql
+       
+  - name: Configure local database instance
+    vars:
+      ansible_python_interpreter: /usr/bin/python3
+    expect: 
+      command: mysqlsh --user=root --password={{ mysqlRootPassword }} -e "dba.configureLocalInstance()"
+      responses:
+        "Please select an option": "2"
+        "Account Name:": "{{ clusterAdminUsername }}"
+        "Password for new account:": "{{ clusterAdminPassword }}"
+        "Confirm password:": "{{ clusterAdminPassword }}"
+        "Do you want to perform the required configuration changes. .y/n.:": "y"
+        "Do you want to restart the instance after configuring it. .y/n.:": "y"
+       
+- hosts: dbmaster
+  tasks:
+
+  - name: Create cluster container
+    command: mysqlsh --user={{ clusterAdminUsername }} --password={{ clusterAdminPassword }} -e "c=dba.createCluster('{{ clusterName }}')"
+
+  - name: Add slaves to cluster
+    vars:
+      ansible_python_interpreter: /usr/bin/python3
+    expect:
+      command: mysqlsh --user={{ clusterAdminUsername }} --password={{ clusterAdminPassword }} -e "c=dba.getCluster(); c.addInstance('{{ clusterAdminUsername }}@{{ item }}:{{ mysqlPort }}')"
+      responses:
+        "Please select a recovery method": "C"
+    loop: "{{ groups['dbslaves'] }}"
+    async: 600
+    poll: 5

@@ -1,0 +1,46 @@
+# To encrypt values:
+# ansible-vault encrypt_string --ask-vault-pass <string_to_encrypt> --name <string_name_of_variable>
+all:
+  children:
+    dbhosts:
+      children:
+        dbmaster:
+          hosts:
+            172.31.0.125:
+        dbslaves:
+          hosts:
+            172.31.10.76:
+            172.31.13.178:
+    apphosts:
+      children:
+        webnodes:
+          hosts:
+            172.31.14.171:
+        processornodes:
+          hosts:
+        masternodes:
+          hosts:
+    proxyhosts:
+      children:
+  vars:
+     # Used in both a local and remote context
+     mediaDir: /home/ec2-user/stroomMedia
+     mysqlPort: 3306
+     mysqlRootPassword: !vault |
+       $ANSIBLE_VAULT;1.1;AES256
+       31633834373335393939323931373235343833356566346235393965326466396263303462643639
+       6239353538393038303439643065653462613665323739350a316332633036363861663532636165
+       32343134363366663330653764633963613663373235306363313835393435626564383936666563
+       3334373534363231350a303930626133626166323336656631346564386261363230303334643639
+       3163
+     clusterName: stroomCluster
+     clusterAdminUsername: clusterAdmin
+     clusterAdminPassword: !vault |
+       $ANSIBLE_VAULT;1.1;AES256
+       38373633333361396662666539323739313637633863666465643861653838373764653833313733
+       3633396339666262303837386134623161316438646330630a386566303665373332373036363134
+       32626233646463626565383432376134356662346138383137663362393134636562396234303836
+       6633353666353066310a646561666635643162393632383461313764376435306430636233646162
+       30633539663639623462643636663334623762613434373935333637646633656435
+     stroomUserName: stroomuser
+     stroomVersion: v7.0-beta.144
