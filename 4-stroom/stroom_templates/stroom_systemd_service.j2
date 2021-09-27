@@ -1,0 +1,15 @@
+[Unit]
+Description=STROOM {{ appType }} {{ stroomVersion }}
+
+[Service]
+Type=forking
+WorkingDirectory=/opt/{{ appType }}-{{ stroomVersion }}
+ExecStart=-/opt/{{ appType }}-{{ stroomVersion }}/wrapped_start.sh
+ExecStop=/opt/{{ appType }}-{{ stroomVersion }}/wrapped_stop.sh
+User={{ stroomUserName }}
+Group={{ stroomUserName }}
+TimeoutSec=240
+
+[Install]
+WantedBy=multi-user.target
+

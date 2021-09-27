@@ -1,0 +1,62 @@
+---
+# Proxy-specific config
+- hosts: storeproxyfronted
+  become: yes
+  tasks:
+
+  - name: Set proxy nginx.conf
+    template:
+      src: "nginx_templates/nginx_proxyfronted.conf.j2"
+      dest: "/etc/nginx/nginx.conf"
+  
+  - name: Set proxy nginx configuration
+    template:
+      src: "nginx_templates/{{ item }}.j2"
+      dest: "/etc/nginx/{{ item }}"
+    loop:
+    - locations.proxy.conf
+    - proxy_location_defaults.conf
+    - upstreams.proxy.conf
+
+# App-specific config
+- hosts: apponly
+  become: yes
+  tasks:
+
+  - name: Set apponly nginx.conf
+    template:
+      src: "nginx_templates/nginx_apponly.conf.j2"
+      dest: "/etc/nginx/nginx.conf"
+  
+# Tasks common to all
+- hosts: stroomhosts
+  become: yes
+  tasks:
+
+  - name: Set STROOM app configuration file
+    template:
+      src: stroom_templates/app_config.yml.j2
+      dest: "/opt/stroom-app-{{ stroomVersion }}/config/config.yml"
+
+  - name: Set common nginx configuration
+    template:
+      src: "nginx_templates/{{ item }}.j2"
+      dest: "/etc/nginx/{{ item }}"
+    loop:
+    - location_defaults.conf
+    - locations.stroom.conf
+    - logging.conf
+    - server.conf
+    - upstreams.stroom.app.conf
+  
+  - name: Restart nginx
+    service:
+      name: nginx
+      state: restarted
+
+  - name: Restart Stroom app
+    service:
+      name: stroom-app
+      state: restarted
+
+...

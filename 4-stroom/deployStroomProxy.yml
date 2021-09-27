@@ -1,0 +1,54 @@
+---
+# Proxy-specific config
+- hosts: storeproxyfronted
+  become: yes
+  tasks:
+
+  - name: Set STROOM proxy configuration file
+    template:
+      src: stroom_templates/proxy_config.yml.j2
+      dest: "/opt/stroom-proxy-app-{{ stroomVersion }}/config/config.yml"
+
+  - name: Set proxy nginx.conf
+    template:
+      src: "nginx_templates/nginx_proxyfronted.conf.j2"
+      dest: "/etc/nginx/nginx.conf"
+  
+  - name: Set proxy nginx configuration
+    template:
+      src: "nginx_templates/{{ item }}.j2"
+      dest: "/etc/nginx/{{ item }}"
+    loop:
+    - locations.proxy.conf
+    - proxy_location_defaults.conf
+    - upstreams.proxy.conf
+
+  # Will need to enter apiKey into config file before this can start
+  - name: Restart Stroom Proxy service
+    service:
+      name: stroom-proxy-app
+      state: restarted
+
+  
+# Tasks common to all
+- hosts: stroomhosts
+  become: yes
+  tasks:
+
+  - name: Set common nginx configuration
+    template:
+      src: "nginx_templates/{{ item }}.j2"
+      dest: "/etc/nginx/{{ item }}"
+    loop:
+    - location_defaults.conf
+    - locations.stroom.conf
+    - logging.conf
+    - server.conf
+    - upstreams.stroom.app.conf
+  
+  - name: Restart nginx
+    service:
+      name: nginx
+      state: restarted
+
+...

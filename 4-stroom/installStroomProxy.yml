@@ -1,0 +1,22 @@
+---
+#
+# Install Stroom Proxy
+#
+- hosts: storeproxyfronted
+  become: yes
+  vars:
+    appType: stroom-proxy-app
+  tasks:
+
+  - import_tasks: installBase.yml
+
+  - name: "Ensure proxy directories exist"
+    file:
+      path: "{{ item }}"
+      state: directory
+      owner: "{{ stroomUserName }}"
+      group: "{{ stroomUserName }}"
+    loop:
+    - "{{ proxyWorkingDir }}"
+    - "{{ proxyRepoDir }}"
+...

@@ -6,22 +6,34 @@ all:
       children:
         dbmaster:
           hosts:
-            172.31.0.125:
+            172.31.3.55:
         dbslaves:
           hosts:
-            172.31.10.76:
-            172.31.13.178:
-    apphosts:
+            172.31.1.246:
+            172.31.3.4:
+    fileservices:
       children:
-        webnodes:
+        fileserver:
           hosts:
-            172.31.14.171:
-        processornodes:
-          hosts:
-        masternodes:
-          hosts:
-    proxyhosts:
+            172.31.8.83:
+              exportedPath: /u01/stroomdata
+    stroomhosts:
       children:
+        # Has a proxy that is accessible externally to Stroom cluster, and an app
+        storeproxyfronted:
+          hosts:
+            172.31.14.40:
+              nodeName: storeproxy1
+              publicAddress: 3.250.238.249
+              publicHostname: ec2-3-250-238-249.eu-west-1.compute.amazonaws.com
+              internalHostname: ip-172-31-14-40.eu-west-1.compute.internal
+        apponly:
+          hosts:
+            172.31.5.221:
+              nodeName: apponly1
+              publicAddress: 54.217.196.96
+              publicHostname: ec2-54-217-196-96.eu-west-1.compute.amazonaws.com
+              internalHostname: ip-172-31-5-221.eu-west-1.compute.internal
   vars:
      # Used in both a local and remote context
      mediaDir: /home/ec2-user/stroomMedia
@@ -44,3 +56,16 @@ all:
        30633539663639623462643636663334623762613434373935333637646633656435
      stroomUserName: stroomuser
      stroomVersion: v7.0-beta.144
+     stroomAppDatabaseName: stroom
+     stroomStatsDatabaseName: stroom_stats
+     database_password: !vault |
+       $ANSIBLE_VAULT;1.1;AES256
+       32323131346636393830646131356235636163623462663634336637396438633236333234363834
+       3664316364346162316163653632376438303964376166360a373831316433336532643934343636
+       33393334613032646635303631396263353264353739616363376131333031663834396563366531
+       6239306263316661360a303631376633636266386531663966646366306238386637653736373431
+       64323830653362366239396639313938323362323436396565613962373532626530
+     exportedPath: /u01/stroomdata
+     nfsMountPoint: /mnt/stroomdata
+     proxyWorkingDir: /opt/stroom-proxy/working
+     proxyRepoDir: /opt/stroom-proxy/repo

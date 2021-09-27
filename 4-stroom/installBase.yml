@@ -1,0 +1,169 @@
+---
+#
+# Install base requirements for Stroom App or Proxy
+#
+  - name: Create Stroom user
+    user:
+      name: "{{ stroomUserName }}"
+      state: present
+  
+  - name: Install Unzip
+    package:
+      name: unzip
+      state: present
+
+  - name: Python 3 needed for Ansible playbooks
+    package:
+      name: python3
+      state: present
+  
+  - name: Python Expect needed for Ansible playbooks
+    vars:
+      ansible_python_interpreter: /usr/bin/python3
+    pip:
+      name: pexpect
+      state: present
+  
+  - name: Create temp directory for copied RPMs
+    file:
+      path: "{{ mediaDir }}"
+      state: directory
+
+  - name: Copy nginx RPM
+    copy:
+      src: "{{ mediaDir }}/nginx-1.20.1-1.el7.ngx.x86_64.rpm"
+      dest: "{{ mediaDir }}"
+
+  - name: Install required rpms
+    yum:
+      name: 
+        - "{{ mediaDir }}/nginx-1.20.1-1.el7.ngx.x86_64.rpm"
+
+  - name: Remove temp directory for RPMs
+    file:
+      path: "{{ mediaDir }}"
+      state: absent
+
+  - name: Unpack Java
+    unarchive:
+      src: "{{ mediaDir }}/openjdk-15.0.2_linux-x64_bin.tar.gz"
+      dest: /opt/
+      owner: root
+      group: root
+      mode: a=rx
+  
+  - name: Add JAVA_HOME
+    lineinfile:
+      path: /etc/bashrc
+      regexp: '^export JAVAHOME='
+      line: export JAVAHOME=/opt/jdk-15.0.2
+  
+  - name: Modify PATH
+    lineinfile:
+      path: /etc/bashrc
+      regexp: '^export PATH=${PATH}:/opt/jdk-15.0.2/bin$'
+      line: export PATH=${PATH}:/opt/jdk-15.0.2/bin
+      state: present
+
+  # Soft dependency - may be needed by supporting scripts etc?
+  #- name: Install JQ
+    #package: 
+      #name: jq
+      #state: present
+
+  - name: SELinux management tools required for Playbooks
+    package:
+      name: policycoreutils-python
+      state: present
+
+  - name: SELinux in Enforcing mode
+    selinux:
+      policy: targeted
+      state: permissive
+
+  - name: Create the log folders for nginx
+    file:
+      path: "{{ item }}"
+      state: directory
+      owner: nginx
+      group: root
+      mode: '0770'
+    loop:
+    - /var/lib/nginx/logs/access
+    - /var/lib/nginx/logs/app
+  
+  - name: Allow nginx to forward connections (SELinux)
+    seboolean:
+      name: httpd_can_network_relay
+      state: yes
+      persistent: yes
+  
+  - name: Copy temporary certs 
+    copy:
+      src: "certs/{{ item }}"
+      dest: "/var/lib/nginx/{{ item }}"
+      owner: nginx
+      group: root
+      mode: "u=rx,g=,o="
+    loop:
+    - ca.pem.crt
+    - server.pem.crt
+    - server.unencrypted.key
+    
+  - name: Install NFS utils
+    package:
+      name: nfs-utils
+      state: present
+
+  - name: Configure NFS mount
+    mount:
+      path: "{{ nfsMountPoint }}"
+      fstype: nfs
+      src: "{{ item[0] }}:{{ hostvars[item[0]].exportedPath }}"
+      state: mounted
+    loop:
+      - "{{ groups['fileservices'] }}"
+  
+  - name: Enable nginx service
+    service:
+      name: nginx
+      enabled: yes
+
+  - name: "Ensure directory to unpack into exists"
+    file:
+      path: "/opt/{{ appType }}-{{ stroomVersion }}"
+      state: directory
+      owner: "{{ stroomUserName }}"
+      group: "{{ stroomUserName }}"
+
+  - name: "Unpack the release zip file"
+    unarchive:
+      src: "{{ mediaDir }}/{{ appType }}-{{ stroomVersion }}.zip"
+      dest: "/opt/{{ appType }}-{{ stroomVersion }}"
+      owner: "{{ stroomUserName }}"
+      group: "{{ stroomUserName }}"
+
+  - name: wrapped start/stop script
+    vars:
+      script: "{{ item }}.sh"
+    template:
+      src: stroom_templates/wrapped_script.sh.j2
+      dest: "/opt/{{ appType }}-{{ stroomVersion }}/wrapped_{{ script }}"
+      owner: "{{ stroomUserName }}"
+      group: "{{ stroomUserName }}"
+      mode: "u=rx,g=,o="
+    loop:
+    - start
+    - stop
+      
+  - name: "Set systemd service file"
+    template:
+      src: stroom_templates/stroom_systemd_service.j2
+      dest: /etc/systemd/system/{{ appType }}.service
+  
+  - name: "Enable service"
+    service:
+      name: "{{ appType }}"
+      enabled: yes
+
+...

@@ -1,0 +1,117 @@
+# Stroom Proxy configuration file
+# ===============================
+
+# For information on the structure of this configuration file see:
+# https://www.dropwizard.io/en/latest/manual/configuration.html
+# For information on the logback logFormat strings see:
+# http://logback.qos.ch/manual/layouts.html
+
+# This configuration file was made for the docker distribution.
+
+# This section is the DropWizard configuration for Stroom Proxy
+
+server:
+  applicationContextPath: /
+  adminContextPath: /proxyAdmin
+  applicationConnectors:
+    - type: http
+      port: "8090"
+  adminConnectors:
+    - type: http
+      port: "8091"
+  requestLog:
+    appenders:
+      # Log appender for the web server request logging
+    - type: file
+      currentLogFilename: logs/access/access.log
+      discardingThreshold: 0
+      # Rolled and gzipped every minute
+      archivedLogFilenamePattern: logs/access/access-%d{yyyy-MM-dd'T'HH:mm}.log.gz
+      archivedFileCount: 100
+      logFormat: '%h %l "%u" [%t] "%r" %s %b "%i{Referer}" "%i{User-Agent}" %D'
+
+logging:
+  level: WARN
+  loggers:
+    stroom: INFO
+    io.dropwizard: INFO
+    org.eclipse.jetty: INFO
+    org.flywaydb: INFO
+    # Logger and appender for proxy receipt audit logs
+    "receive":
+      level: INFO
+      additive: false
+      appenders:
+      - type: file
+        currentLogFilename: logs/receive/receive.log
+        discardingThreshold: 0
+        # Rolled and gzipped every minute
+        archivedLogFilenamePattern: logs/receive/receive-%d{yyyy-MM-dd'T'HH:mm}.log.gz
+        archivedFileCount: 100
+        logFormat: "%-6level [%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z'}] [%t] %logger - %X{code} %msg %n"
+
+    # Logger and appender for proxy send audit logs
+    "send":
+      level: INFO
+      additive: false
+      appenders:
+      - type: file
+        currentLogFilename: logs/send/send.log
+        discardingThreshold: 0
+        # Rolled and gzipped every minute
+        archivedLogFilenamePattern: logs/send/send-%d{yyyy-MM-dd'T'HH:mm}.log.gz
+        archivedFileCount: 100
+        logFormat: "%-6level [%d{yyyy-MM-dd'T'HH:mm:ss.SSS'Z'}] [%t] %logger - %X{code} %msg %n"
+  appenders:
+
+    # stdout for docker
+  - type: console
+    # Multi-coloured log format for console output
+    logFormat: "%highlight(%-6level) [%d{\"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\",UTC}] [%green(%t)] %cyan(%logger) - %X{code} %msg %n"
+    timeZone: UTC
+
+    # Minute rolled files for stroom/datafeed, will be curl'd/deleted by stroom-log-sender
+  - type: file
+    currentLogFilename: logs/app/app.log
+    discardingThreshold: 0
+    archivedLogFilenamePattern: logs/app/app-%d{yyyy-MM-dd'T'HH:mm}.log.gz
+    # One week using minute files
+    archivedFileCount: 10080
+    logFormat: "%-6level [%d{\"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\",UTC}] [%t] %logger - %X{code} %msg %n"
+
+# This section contains the Stroom Proxy configuration properties
+# For mor information see:
+# https://gchq.github.io/stroom-docs/user-guide/properties.html
+proxyConfig:
+  useDefaultOpenIdCredentials: ${USE_DEFAULT_OPEN_ID_CREDENTIALS:-false}
+  feedStatus:
+    url: "${FEED_STATUS_URL:-http://localhost:8080/api/feedStatus/v1}"
+    apiKey: ""
+  forwardStreamConfig:
+    forwardingEnabled: ${FORWARDING_ENABLED:-false}
+  path:
+    # By default all files read or written to by stroom-proxy will be in directories relative to
+    # the home location. This should be set to an absolute path that differs from the location of
+    # the installed software as it has a different lifecycle.
+    home: "{{ proxyWorkingDir }}"
+  proxyRepositoryConfig:
+    storingEnabled: ${STORING_ENABLED:-true}
+    # TODO make 'repo' the default in ProxyRepoConfig and change code to test for isStoringEnabled
+    repoDir: "{{ proxyRepoDir }}"
+    format: "${executionUuid}/${year}-${month}-${day}/${feed}/${pathId}/${id}"
+    # Uncomment this for rolled repositories
+    # rollCron: "* * *"
+  proxyRepositoryReaderConfig:
+    readCron: "* * *"
+  # restClient is used for making feed status REST calls
+  #restClient:
+    #timeout: "10s"
+    #connectionTimeout: "10s"
+    #tls:
+      #verifyHostname: ${REST_CLIENT_VERIFY_HOSTNAME:-true}
+      #keyStorePath: "certs/client.jks"
+      #keyStorePassword: "password"
+      #trustStorePath: "certs/ca.jks"
+      #trustStorePassword: "password"
+# vim: set filetype=yaml tabstop=2 shiftwidth=2 expandtab:
+

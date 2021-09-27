@@ -1,0 +1,91 @@
+---
+#
+# Install Stroom App
+#
+- hosts: stroomhosts
+  become: yes
+  vars:
+    appType: stroom-app
+  tasks:
+
+  - import_tasks: installBase.yml
+
+  # Compatibility issues were found with MySQL if postfix is present
+  - name: Uninstall postfix
+    package:
+      name: postfix
+      state: absent
+
+  - name: Create temp directory for required RPMs
+    file:
+      path: "{{ mediaDir }}"
+      state: directory
+
+  - name: Unzip MySQL bundle
+    unarchive:
+      src: "{{ mediaDir }}/mysql-8.0.26-1.el7.x86_64.rpm-bundle.tar"
+      dest: "{{ mediaDir }}"
+
+  - name: Copy MySQL Router RPM
+    copy:
+      src: "{{ mediaDir }}/mysql-router-community-8.0.26-1.el7.x86_64.rpm"
+      dest: "{{ mediaDir }}"
+
+  - name: Install required rpms
+    yum:
+      name: 
+        - "{{ mediaDir }}/mysql-community-common-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-client-plugins-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-libs-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-community-client-8.0.26-1.el7.x86_64.rpm"
+        - "{{ mediaDir }}/mysql-router-community-8.0.26-1.el7.x86_64.rpm"
+
+  - name: Remove temp directory for RPMs
+    file:
+      path: "{{ mediaDir }}"
+      state: absent
+
+  - name: Bootstrap the MySQL 8 Router
+    no_log: true
+    vars:
+      ansible_python_interpreter: /usr/bin/python3
+    expect: 
+      command: /usr/bin/mysqlrouter --force --user=mysqlrouter --bootstrap={{ clusterAdminUsername }}@{{ groups['dbmaster'][0] }}:{{ mysqlPort }}
+      echo: yes
+      responses:
+        "Please enter MySQL password for": "{{ clusterAdminPassword }}"
+
+  - name: MySQL 8 Router service
+    service:
+      name: mysqlrouter
+      enabled: yes
+      state: started
+  
+  - name: Install NFS utils
+    package:
+      name: nfs-utils
+      state: present
+
+  #- name: Create NFS mountpoint
+    #file:
+      #path: "{{ nfsMountPoint }}"
+      #state: directory
+
+  #- name: Add NFS mount to fstab
+    #lineinfile:
+      #path: /etc/fstab
+      #regexp: "{{ nfsMountPoint }}"
+      #line: "{{ item[0] }}:{{ hostvars[item[0]].exportedPath }} {{ nfsMountPoint }} nfs defaults 0 0"
+    #loop:
+      #- "{{ groups['fileservices'] }}"
+
+  - name: Configure NFS mount
+    mount:
+      path: "{{ nfsMountPoint }}"
+      fstype: nfs
+      src: "{{ item[0] }}:{{ hostvars[item[0]].exportedPath }}"
+      state: mounted
+    loop:
+      - "{{ groups['fileservices'] }}"
+  
+...

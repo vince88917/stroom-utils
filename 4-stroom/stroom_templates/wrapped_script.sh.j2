@@ -1,0 +1,7 @@
+#!/bin/bash
+#
+# For SystemD this sources /etc/bashrc so that we have the right
+# environment, including PATH and JAVAHOME, for running STROOM
+#
+source /etc/bashrc
+/opt/{{ appType }}-{{ stroomVersion }}/{{ script }}

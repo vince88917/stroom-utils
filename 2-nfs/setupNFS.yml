@@ -1,0 +1,55 @@
+---
+#
+# Install and configure NFS host
+#
+- hosts: fileservices
+  become: yes
+  tasks:
+
+  - name: Install nfs-utils
+    package:
+      name: nfs-utils
+      state: present
+
+  - name: Create Stroom group
+    user:
+      name: "{{ stroomUserName }}"
+      state: present
+  
+  - name: Create Stroom user
+    user:
+      name: "{{ stroomUserName }}"
+      state: present
+  
+  - name: Create exported directory
+    file:
+      path: "{{ exportedPath }}"
+      state: directory
+      mode: 0777
+      owner: "{{ stroomUserName }}"
+      group: "{{ stroomUserName }}"
+
+  - name: Initialise exports
+    lineinfile:
+      path: /etc/exports
+      regexp: "^{{ exportedPath }}"
+      line: "{{ exportedPath }}"
+
+  - name: Write export string to conf file
+    lineinfile:
+      path: /etc/exports
+      regexp: '^{{ exportedPath }}(.*)$'
+      line: '{{ exportedPath }}\1 {{ item }}(rw)'
+      backrefs: yes
+    with_items: 
+      - "{{ groups['stroomhosts'] }}"
+      - "{{ groups['dbhosts'] }}"
+
+  - name: Enable NFS service
+    service:
+      name: nfs
+      enabled: yes
+
+  - name: NFS apply changes
+    shell: systemctl restart nfs;exportfs -a
+...
