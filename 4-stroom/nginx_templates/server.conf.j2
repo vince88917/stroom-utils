@@ -5,11 +5,11 @@ listen                      443 ssl;
 server_name                 {{ publicAddress }} {{ publicHostname }};
 
 # The server's public certificate
-ssl_certificate             /var/lib/nginx/server.pem.crt;
+ssl_certificate             /etc/pki/tls/certs/{{ publicHostname }}.crt;
 # The server's private key
-ssl_certificate_key         /var/lib/nginx/server.unencrypted.key;
+ssl_certificate_key         /etc/pki/tls/private/{{ publicHostname }}.key;
 # The public CA cert for verifying client certs
-ssl_client_certificate      /var/lib/nginx/ca.pem.crt;
+ssl_client_certificate      /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem;
 
 # These two need to be on otherwise we won't be able to extract the DN or the cert
 # In order to capture the DN in the headers/logs, ssl_client_verify needs to be set
