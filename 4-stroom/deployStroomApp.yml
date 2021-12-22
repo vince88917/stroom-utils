@@ -19,7 +19,9 @@
     - upstreams.proxy.conf
 
 # App-specific config
-- hosts: apponly
+- hosts:
+  - webui
+  - apponly
   become: yes
   tasks:
 
