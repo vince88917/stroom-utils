@@ -39,7 +39,7 @@
     lineinfile:
       path: /etc/exports
       regexp: '^{{ exportedPath }}(.*)$'
-      line: '{{ exportedPath }}\1 {{ item }}(rw)'
+      line: '{{ exportedPath }}\1 {{ item }}(rw,insecure)'
       backrefs: yes
     with_items: 
       - "{{ groups['stroomhosts'] }}"
