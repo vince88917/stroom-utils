@@ -52,18 +52,11 @@
       group: root
       mode: a=rx
   
-  - name: Add JAVA_HOME
-    lineinfile:
-      path: /etc/bashrc
-      regexp: '^export JAVAHOME='
-      line: export JAVAHOME=/opt/jdk-15.0.2
-  
-  - name: Modify PATH
-    lineinfile:
-      path: /etc/bashrc
-      regexp: '^export PATH=${PATH}:/opt/jdk-15.0.2/bin$'
-      line: export PATH=${PATH}:/opt/jdk-15.0.2/bin
-      state: present
+  - name: Copy stroom.sh profile
+    copy:
+      src: stroom.sh
+      dest: /etc/profile.d/stroom.sh
+      mode: 0644
 
   # Soft dependency - may be needed by supporting scripts etc?
   #- name: Install JQ
@@ -98,17 +91,21 @@
       state: yes
       persistent: yes
   
-  - name: Copy temporary certs 
+  - name: Copy temporary private key
     copy:
-      src: "certs/{{ item }}"
-      dest: "/var/lib/nginx/{{ item }}"
-      owner: nginx
-      group: root
-      mode: "u=rx,g=,o="
-    loop:
-    - ca.pem.crt
-    - server.pem.crt
-    - server.unencrypted.key
+      src: "certs/server.unencrypted.key"
+      dest: "/etc/pki/tls/private/{{ publicHostname }}.key"
+      owner: root
+      group: nginx
+      mode: "u=rx,g=r,o="
+    
+  - name: Copy temporary cert
+    copy:
+      src: "certs/server.pem.crt"
+      dest: "/etc/pki/tls/certs/{{ publicHostname }}.crt"
+      owner: root
+      group: nginx
+      mode: "u=rx,g=r,o="
     
   - name: Install NFS utils
     package:
