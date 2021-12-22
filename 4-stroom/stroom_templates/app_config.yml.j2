@@ -106,6 +106,7 @@ appConfig:
   nodeUri:
     hostname: ${STROOM_HOST:-{{ internalHostname }}}
   path:
+    home: ${STROOM_HOME:-}
     temp: "/tmp/stroom"
   proxyAggregation:
     proxyDir: ${STROOM_PROXY_DIR:-{{ proxyRepoDir }}}
